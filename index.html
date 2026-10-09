@@ -1,0 +1,337 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="default-src * data: gap: content: https://ssl.gstatic.com; style-src * 'unsafe-inline'; script-src * 'unsafe-inline' 'unsafe-eval'">
+    <script src="components/loader.js"></script>
+    <link rel="stylesheet" href="components/loader.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        body {
+            margin: 0;
+            padding: 16px;
+            background-color: #f4f6f8;
+            color: #333;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            font-size: 1.5rem;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-secondary { background-color: #e0e0e0; color: #333; }
+        .btn-active { background-color: #2c3e50; color: white; }
+        
+        /* クイズ解答エリア */
+        .question-box {
+            font-size: 1.2rem;
+            font-weight: bold;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+        .choice-buttons {
+            display: flex;
+            gap: 16px;
+        }
+        .btn-circle {
+            flex: 1;
+            padding: 16px 0;
+            font-size: 2.5rem;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            background: #fff;
+            cursor: pointer;
+        }
+        .btn-maru { color: #e74c3c; border-color: #e74c3c; }
+        .btn-batsu { color: #3498db; border-color: #3498db; }
+        .btn-circle:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        
+        /* 結果・解説表示 */
+        .result-box {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+        .result-correct { background-color: #d4edda; color: #155724; }
+        .result-incorrect { background-color: #f8d7da; color: #721c24; }
+        .result-title { font-size: 1.4rem; font-weight: bold; margin-bottom: 8px; }
+        .explanation { text-align: left; margin-top: 10px; line-height: 1.5; font-size: 0.95rem; white-space: pre-wrap; }
+
+        /* クイズ登録フォーム */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        textarea { resize: vertical; height: 80px; }
+        .radio-group {
+            display: flex;
+            gap: 20px;
+        }
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: normal;
+            cursor: pointer;
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>〇✕クイズ</h1>
+
+        <!-- 画面切替ボタン -->
+        <div class="nav-buttons">
+            <button id="nav-answer" class="btn btn-active" onclick="switchTab('answer')">クイズを解く</button>
+            <button id="nav-insert" class="btn btn-secondary" onclick="switchTab('insert')">問題を登録</button>
+        </div>
+
+        <!-- クイズ回答画面 -->
+        <div id="section-answer" class="card">
+            <div id="question-box" class="question-box">問題を読み込み中...</div>
+            
+            <div class="choice-buttons">
+                <button id="btn-maru" class="btn-circle btn-maru" onclick="checkAnswer(1)" disabled>〇</button>
+                <button id="btn-batsu" class="btn-circle btn-batsu" onclick="checkAnswer(0)" disabled>✕</button>
+            </div>
+
+            <div id="result-box" class="result-box">
+                <div id="result-title" class="result-title"></div>
+                <div id="explanation-text" class="explanation"></div>
+                <button class="btn btn-primary" style="margin-top: 15px; width: 100%;" onclick="loadNextQuestion()">次の問題へ</button>
+            </div>
+        </div>
+
+        <!-- クイズ登録画面 -->
+        <div id="section-insert" class="card hidden">
+            <div class="form-group">
+                <label for="input-question">問題文</label>
+                <input type="text" id="input-question" placeholder="例: 日本で一番高い山は富士山である。">
+            </div>
+
+            <div class="form-group">
+                <label>答え</label>
+                <div class="radio-group">
+                    <label class="radio-label"><input type="radio" name="answer-val" value="1" checked> 〇 (正しい)</label>
+                    <label class="radio-label"><input type="radio" name="answer-val" value="0"> ✕ (誤り)</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="input-explanation">解説</label>
+                <textarea id="input-explanation" placeholder="例: 富士山の標高は3,776mで日本一です。"></textarea>
+            </div>
+
+            <button class="btn btn-primary" style="width: 100%;" onclick="registerQuiz()">登録する</button>
+        </div>
+    </div>
+
+    <script>
+    const apikey = "1cf240fe-c3eb-4033-92b5-56f86c0d0caa";
+    let questions = [];      // 全問題を保持する配列
+    let currentIndex = 0;    // 現在何問目かを示すインデックス
+    let correctCount = 0;    // 正解数をカウントする変数
+    let currentRecord = null;
+
+    // タブ切り替え
+    function switchTab(tab) {
+        document.getElementById("section-answer").classList.toggle("hidden", tab !== 'answer');
+        document.getElementById("section-insert").classList.toggle("hidden", tab !== 'insert');
+        
+        document.getElementById("nav-answer").className = `btn ${tab === 'answer' ? 'btn-active' : 'btn-secondary'}`;
+        document.getElementById("nav-insert").className = `btn ${tab === 'insert' ? 'btn-active' : 'btn-secondary'}`;
+
+        if (tab === 'answer' && !currentRecord) {
+            loadNextQuestion();
+        }
+    }
+
+    // 配列をランダムにシャッフルする関数
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    // 全問題をデータベースから取得する
+    async function fetchAllQuestions() {
+        document.getElementById("question-box").innerText = "問題を読み込み中...";
+        setButtonsEnabled(false);
+
+        const url = `https://db.monaca.education/select?apikey=${apikey}`;
+
+        try {
+            const res = await fetch(url);
+            const db = await res.json();
+
+            if (!db.records || db.records.length === 0) {
+                document.getElementById("question-box").innerText = "問題が見つかりません。「問題を登録」から追加してください。";
+                questions = [];
+                return false;
+            }
+
+            questions = db.records;
+            shuffleArray(questions); // 取得した問題をシャッフル
+            currentIndex = 0;
+            correctCount = 0; // 正解数をリセット
+            return true;
+        } catch (err) {
+            console.error("エラー:", err);
+            document.getElementById("question-box").innerText = "通信エラーが発生しました。";
+            return false;
+        }
+    }
+
+    // 次の問題を表示する
+    async function loadNextQuestion() {
+        document.getElementById("result-box").style.display = "none";
+
+        // まだ問題を取得していない場合
+        if (questions.length === 0) {
+            const success = await fetchAllQuestions();
+            if (!success) return;
+        } 
+        // 全問題を解き終えた場合
+        else if (currentIndex >= questions.length) {
+            alert(`🎉 すべての問題を解き終わりました！\n\n結果：${questions.length}問中 ${correctCount}問正解でした！\n\n再度シャッフルして解き直します。`);
+            shuffleArray(questions);
+            currentIndex = 0;
+            correctCount = 0; // 正解数をリセット
+        }
+
+        currentRecord = questions[currentIndex];
+        document.getElementById("question-box").innerText = currentRecord.text0;
+        setButtonsEnabled(true);
+
+        currentIndex++; // 次の問題へカウントを進める
+    }
+
+    // 解答チェック
+    function checkAnswer(userChoice) {
+        if (!currentRecord) return;
+
+        setButtonsEnabled(false);
+
+        const isCorrect = userChoice === Number(currentRecord.int0);
+        const resultBox = document.getElementById("result-box");
+        const resultTitle = document.getElementById("result-title");
+        const expText = document.getElementById("explanation-text");
+
+        resultBox.style.display = "block";
+        if (isCorrect) {
+            correctCount++; // 正解の場合、正解数を1加算
+            resultBox.className = "result-box result-correct";
+            resultTitle.innerText = "🎉 正解！";
+        } else {
+            resultBox.className = "result-box result-incorrect";
+            resultTitle.innerText = "❌ 不正解...";
+        }
+
+        expText.innerText = currentRecord.text1 ? `【解説】\n${currentRecord.text1}` : "解説はありません。";
+    }
+
+    // ボタンの有効・無効切り替え
+    function setButtonsEnabled(enabled) {
+        document.getElementById("btn-maru").disabled = !enabled;
+        document.getElementById("btn-batsu").disabled = !enabled;
+    }
+
+    // クイズ登録
+    function registerQuiz() {
+        const question = document.getElementById("input-question").value.trim();
+        const explanation = document.getElementById("input-explanation").value.trim();
+        const answer = document.querySelector('input[name="answer-val"]:checked').value;
+
+        if (!question) {
+            alert("問題文を入力してください。");
+            return;
+        }
+
+        const url = `https://db.monaca.education/insert?apikey=${apikey}`
+                  + `&text0=${encodeURIComponent(question)}`
+                  + `&int0=${answer}`
+                  + `&text1=${encodeURIComponent(explanation)}`;
+
+        fetch(url)
+            .then(res => res.json())
+            .then(result => {
+                alert("問題を登録しました！");
+                document.getElementById("input-question").value = "";
+                document.getElementById("input-explanation").value = "";
+                
+                // 新しい問題が追加されたのでリスト・カウントをリセットして再取得させる
+                questions = [];
+                currentRecord = null;
+                correctCount = 0;
+                switchTab('answer');
+            })
+            .catch(err => {
+                console.error("エラー:", err);
+                alert("登録に失敗しました。");
+            });
+    }
+
+    window.onload = function() {
+        loadNextQuestion();
+    };
+</script>
+</body>
+</html>
